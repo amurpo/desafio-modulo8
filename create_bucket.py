@@ -1,5 +1,6 @@
 import boto3
 import os
+import json
 from botocore.exceptions import ClientError
 
 def create_bucket(bucket_name, region):
@@ -15,6 +16,7 @@ def create_bucket(bucket_name, region):
         raise
 
 def set_bucket_policy(bucket_name, s3_user):
+    # Define the bucket policy
     bucket_policy = {
         "Version": "2012-10-17",
         "Statement": [
@@ -22,33 +24,36 @@ def set_bucket_policy(bucket_name, s3_user):
                 "Sid": "AllowSpecificUserOnly",
                 "Effect": "Allow",
                 "Principal": {
-                    "AWS": s3_user  # S3 user ARN from environment variable
+                    "AWS": s3_user  # ARN del usuario S3 desde la variable de entorno
                 },
                 "Action": ["s3:PutObject", "s3:GetObject"],
                 "Resource": [f"arn:aws:s3:::{bucket_name}/*"]
             }
         ]
     }
-    
+
+    # Convertir el diccionario a JSON
+    policy_json = json.dumps(bucket_policy)
+
     s3_client = boto3.client('s3')
     try:
-        s3_client.put_bucket_policy(Bucket=bucket_name, Policy=str(bucket_policy))
+        s3_client.put_bucket_policy(Bucket=bucket_name, Policy=policy_json)
         print(f"✓ Bucket policy set for {bucket_name}")
     except ClientError as e:
         print(f"✕ Error setting bucket policy: {e}")
         raise
 
 def main():
-    # Load environment variables
+    # Cargar variables de entorno
     bucket_name = os.environ.get('S3_BUCKET_NAME')
-    s3_user = os.environ.get('S3_USER')  # ARN of S3 user
+    s3_user = os.environ.get('S3_USER')  # ARN del usuario S3
     region = os.environ.get('AWS_REGION')
 
-    # Validate required environment variables
+    # Validar que las variables de entorno necesarias estén presentes
     if not bucket_name or not s3_user or not region:
         raise ValueError("S3_BUCKET_NAME, S3_USER, and AWS_REGION environment variables are required")
 
-    # Create bucket and set policy
+    # Crear el bucket y establecer la política
     create_bucket(bucket_name, region)
     set_bucket_policy(bucket_name, s3_user)
 

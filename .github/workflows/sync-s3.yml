@@ -6,60 +6,57 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-
 jobs:
-  check_bucket:
+  check_and_create:
     runs-on: ubuntu-latest
-    outputs:
-      bucket_exists: ${{ steps.check.outputs.exists }}
     steps:
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Configure AWS Credentials (Admin)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # Admin credentials
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # Admin credentials
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Check bucket existence
         id: check
         run: |
           if aws s3api head-bucket --bucket ${{ secrets.S3_BUCKET_NAME }} 2>/dev/null; then
+            echo "✓ Bucket already exists"
             echo "exists=true" >> $GITHUB_OUTPUT
           else
+            echo "✕ Bucket does not exist, creating..."
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-  sync:
-    needs: [check_bucket]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Install dependencies
         run: pip install boto3 pyyaml
 
-      - name: Conditional bucket creation
-        if: needs.check_bucket.outputs.bucket_exists == 'false'
-        env:
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      - name: Create S3 bucket (if not exists)
+        if: steps.check.outputs.exists == 'false'
         run: |
-          echo "Bucket doesn't exist, creating..."
           python create_bucket.py
+        env:
+          BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          S3_USER: ${{ secrets.S3_USER }}
+
+  sync_files:
+    needs: [check_and_create]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (S3_USER)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.S3_USER_ACCESS_KEY_ID }}  # S3 user credentials
+          aws-secret-access-key: ${{ secrets.S3_USER_SECRET_ACCESS_KEY }}  # S3 user credentials
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Sync files to S3
         run: |

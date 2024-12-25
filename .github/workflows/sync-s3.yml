@@ -10,6 +10,9 @@ jobs:
   check_and_create:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Configure AWS Credentials (Admin)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -35,13 +38,6 @@ jobs:
 
       - name: Install dependencies
         run: pip install boto3 pyyaml
-        
-      - name: List files and show current directory (for debugging)
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Listing files in current directory:"
-          ls -al
           
       - name: Create S3 bucket (if not exists)
         if: steps.check.outputs.exists == 'false'
@@ -70,4 +66,6 @@ jobs:
           aws s3 sync . s3://${{ secrets.S3_BUCKET_NAME }} \
             --exclude ".git/*" \
             --exclude ".github/*" \
-            --exclude "README.md"
+            --exclude "README.md" \
+            --exclude "LICENSE" \
+            --exclude "scripts/*" \

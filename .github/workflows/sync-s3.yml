@@ -35,7 +35,14 @@ jobs:
 
       - name: Install dependencies
         run: pip install boto3 pyyaml
-
+        
+      - name: List files and show current directory (for debugging)
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Listing files in current directory:"
+          ls -al
+          
       - name: Create S3 bucket (if not exists)
         if: steps.check.outputs.exists == 'false'
         run: |

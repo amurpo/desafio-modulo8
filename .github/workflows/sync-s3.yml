@@ -39,7 +39,7 @@ jobs:
       - name: Create S3 bucket (if not exists)
         if: steps.check.outputs.exists == 'false'
         run: |
-          python create_bucket.py
+          python ./create_bucket.py
         env:
           BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           AWS_REGION: ${{ vars.AWS_REGION }}
